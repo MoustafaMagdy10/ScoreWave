@@ -5,3 +5,14 @@ demucs
 python-multipart
 torchcodec
 tqdm
+numpy<2
+torchcrepe
+pydantic
+soundfile
+aiofiles
+python-dotenv
+basic-pitch
+onnxruntime
+librosa
+pretty_midi
+mir-eval
