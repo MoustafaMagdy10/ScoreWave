@@ -14,47 +14,48 @@ TRANSCRIPTIONS_DIR = "tmp/transcriptions"
 
 # ── Endpoints ───────────────────────────────────────────────────────────
 
+
 @router.post("/transcribe", response_model=TranscriptionResponse)
 async def transcribe_route(
     file: UploadFile = File(...),
     melody_only: bool = Query(
         default=False,
-        description="Extract monophonic melody (1 note at a time) - recommended for sheet music"
+        description="Extract monophonic melody (1 note at a time) - recommended for sheet music",
     ),
     min_amplitude: float = Query(
         default=0.5,
         ge=0.0,
         le=1.0,
-        description="Minimum amplitude threshold (0.0-1.0) - filters quiet notes"
+        description="Minimum amplitude threshold (0.0-1.0) - filters quiet notes",
     ),
     polyphony_limit: int = Query(
         default=1,
         ge=1,
-        description="Maximum simultaneous notes (1=monophonic, higher for chords)"
+        description="Maximum simultaneous notes (1=monophonic, higher for chords)",
     ),
     min_note_duration: float = Query(
         default=0.1,
         ge=0.01,
-        description="Minimum note duration in seconds - filters very short notes"
+        description="Minimum note duration in seconds - filters very short notes",
     ),
 ):
     """
     Transcribe audio to MIDI using Basic Pitch with intelligent melody extraction.
-    
+
     **NEW: Melody Extraction** 🎵
     - Filters out background instruments and accompaniment
     - Extracts clean melodic line suitable for sheet music
     - Reduces crowded MIDI files to readable notation
-    
+
     **Recommended for sheet music:**
     - `melody_only=true` - Extract single melodic line
     - `min_amplitude=0.6` - Keep only prominent notes
     - `polyphony_limit=1` - One note at a time
-    
+
     **For piano/guitar chords:**
     - `melody_only=false`
     - `polyphony_limit=3-4` - Allow multiple simultaneous notes
-    
+
     **Best stem to use:**
     - For melody: Use **vocals.wav** or **other.wav** (with melody extraction enabled)
     - For full transcription: Use original mixed audio
@@ -84,7 +85,7 @@ async def transcribe_route(
     # Extract filename from path for URL
     midi_filename = Path(result["midi_path"]).name
     json_filename = Path(result["json_path"]).name
-    
+
     # Build response with melody stats if available
     response = TranscriptionResponse(
         midi_url=f"/api/midi/{midi_filename}",
@@ -93,10 +94,10 @@ async def transcribe_route(
         duration_s=result["duration_s"],
         melody_applied=result.get("melody_applied", False),
     )
-    
+
     if "melody_stats" in result:
         response.melody_stats = MelodyStats(**result["melody_stats"])
-    
+
     return response
 
 
@@ -107,7 +108,7 @@ def download_midi(midi_filename: str):
     if not path.exists():
         raise HTTPException(
             status_code=404,
-            detail=f"MIDI file '{midi_filename}' not found. Run POST /api/transcribe first."
+            detail=f"MIDI file '{midi_filename}' not found. Run POST /api/transcribe first.",
         )
     return FileResponse(
         path=str(path),
@@ -123,7 +124,7 @@ def get_notes(json_filename: str):
     if not path.exists():
         raise HTTPException(
             status_code=404,
-            detail=f"Notes file '{json_filename}' not found. Run POST /api/transcribe first."
+            detail=f"Notes file '{json_filename}' not found. Run POST /api/transcribe first.",
         )
     return FileResponse(
         path=str(path),
@@ -136,5 +137,6 @@ def get_notes(json_filename: str):
 def health_check():
     """Health check for Basic Pitch model."""
     from models.basic_pitch import BasicPitch
+
     bp = BasicPitch()
     return {"status": "ok" if bp.health_check() else "error"}

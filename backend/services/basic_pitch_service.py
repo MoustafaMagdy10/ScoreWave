@@ -48,6 +48,7 @@ def _load_audio_stereo_44k(audio_bytes: bytes) -> tuple[np.ndarray, int]:
     # Resample to 44.1kHz if needed
     if sr != DEFAULT_SAMPLE_RATE:
         from scipy.signal import resample
+
         num_samples = int(len(waveform) * DEFAULT_SAMPLE_RATE / sr)
         waveform = resample(waveform, num_samples, axis=0)
 
@@ -57,7 +58,7 @@ def _load_audio_stereo_44k(audio_bytes: bytes) -> tuple[np.ndarray, int]:
 def _note_event_to_dict(note_event: tuple) -> dict:
     """
     Convert a Basic Pitch NoteEvent tuple to a dictionary.
-    
+
     NoteEvent tuple format: (start_time, end_time, pitch, amplitude, pitch_bends)
     - start_time: float (seconds)
     - end_time: float (seconds)
@@ -66,9 +67,9 @@ def _note_event_to_dict(note_event: tuple) -> dict:
     - pitch_bends: Optional[List[int]] - pitch bend values
     """
     import numpy as np
-    
+
     start_time, end_time, pitch, amplitude, pitch_bends = note_event
-    
+
     def to_python_type(val):
         if isinstance(val, (np.integer, np.int64, np.int32)):
             return int(val)
@@ -79,13 +80,13 @@ def _note_event_to_dict(note_event: tuple) -> dict:
         if isinstance(val, list):
             return [to_python_type(x) for x in val]
         return val
-    
+
     start_time = to_python_type(start_time)
     end_time = to_python_type(end_time)
     pitch = to_python_type(pitch)
     amplitude = to_python_type(amplitude)
     pitch_bends = to_python_type(pitch_bends) if pitch_bends else None
-    
+
     return {
         "start_time_s": start_time,
         "end_time_s": end_time,
@@ -162,7 +163,9 @@ def transcribe_to_midi(
         duration_s = len(waveform) / sample_rate
         bar.update(1)
 
-    logger.info(f"  Audio: {duration_s:.1f}s | {sample_rate} Hz | {waveform.shape[1]}ch")
+    logger.info(
+        f"  Audio: {duration_s:.1f}s | {sample_rate} Hz | {waveform.shape[1]}ch"
+    )
 
     # ── 2. Save audio to temp WAV file for Basic Pitch ─────────────────────
     # Basic Pitch's predict() requires a file path, not raw bytes
@@ -200,11 +203,11 @@ def transcribe_to_midi(
 
     # ── 4. Convert note events to dict format ──────────────────────────────
     note_list_original = [_note_event_to_dict(n) for n in note_events]
-    
+
     # ── 5. Apply melody extraction (if requested) ──────────────────────────
     melody_applied = melody_only or min_amplitude > 0.0 or polyphony_limit < 999
     melody_stats = None
-    
+
     if melody_applied:
         with _bar("Extracting melody    ") as bar:
             note_list_filtered = apply_melody_extraction(
@@ -216,52 +219,54 @@ def transcribe_to_midi(
             )
             melody_stats = get_melody_stats(note_list_original, note_list_filtered)
             bar.update(1)
-        
+
         logger.info(
             f"  Melody extraction: {melody_stats['original_note_count']} → "
             f"{melody_stats['filtered_note_count']} notes "
             f"({melody_stats['reduction_pct']:.1f}% reduction)"
         )
-        
+
         # Use filtered notes for MIDI and JSON
         note_list_final = note_list_filtered
-        
+
         # Recreate MIDI from filtered notes
         with _bar("Rebuilding MIDI      ") as bar:
             import pretty_midi
+
             midi_data_filtered = pretty_midi.PrettyMIDI()
             instrument = pretty_midi.Instrument(program=0)  # Acoustic Grand Piano
-            
+
             for note_dict in note_list_filtered:
                 note_obj = pretty_midi.Note(
-                    velocity=int(note_dict['amplitude'] * 127),
-                    pitch=note_dict['pitch'],
-                    start=note_dict['start_time_s'],
-                    end=note_dict['end_time_s']
+                    velocity=int(note_dict["amplitude"] * 127),
+                    pitch=note_dict["pitch"],
+                    start=note_dict["start_time_s"],
+                    end=note_dict["end_time_s"],
                 )
                 instrument.notes.append(note_obj)
-            
+
             midi_data_filtered.instruments.append(instrument)
             midi_data_filtered.write(midi_path)
             bar.update(1)
     else:
         note_list_final = note_list_original
-    
+
     # ── 6. Save note events to JSON ─────────────────────────────────────────
     json_filename = f"transcription_{job_id}.json"
     json_path = output_dir / json_filename
 
     with _bar("Saving JSON          ") as bar:
         import json
+
         json_output = {
             "note_count": len(note_list_final),
             "duration_s": duration_s,
             "notes": note_list_final,
         }
-        
+
         if melody_stats:
             json_output["melody_stats"] = melody_stats
-        
+
         with open(json_path, "w") as f:
             json.dump(json_output, f, indent=2)
         bar.update(1)
@@ -278,8 +283,8 @@ def transcribe_to_midi(
         "duration_s": round(duration_s, 2),
         "melody_applied": melody_applied,
     }
-    
+
     if melody_stats:
         result["melody_stats"] = melody_stats
-    
+
     return result

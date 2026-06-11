@@ -50,9 +50,9 @@ def separate_audio(audio_bytes: bytes, output_dir: str) -> dict[str, str]:
     if not _demucs.health_check():
         raise RuntimeError("Demucs model is not loaded. Cannot run separation.")
 
-    model   = _demucs.model
-    device  = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model   = model.to(device)
+    model = _demucs.model
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = model.to(device)
 
     size_kb = len(audio_bytes) // 1024
     t_start = time.time()
@@ -66,14 +66,16 @@ def separate_audio(audio_bytes: bytes, output_dir: str) -> dict[str, str]:
         duration_sec = waveform.shape[-1] / sample_rate
         bar.update(1)
 
-    logger.info(f"  Audio: {duration_sec:.1f}s | {sample_rate} Hz | {waveform.shape[0]}ch")
+    logger.info(
+        f"  Audio: {duration_sec:.1f}s | {sample_rate} Hz | {waveform.shape[0]}ch"
+    )
 
     # -- 2. Resample to model's expected sample rate --------------------------
     with _bar("Resampling          ") as bar:
         waveform = convert_audio(
             waveform,
             sample_rate,
-            model.samplerate,      # htdemucs expects 44100 Hz
+            model.samplerate,  # htdemucs expects 44100 Hz
             model.audio_channels,  # stereo (2)
         )
         waveform = waveform.unsqueeze(0).to(device)  # -> [batch, ch, samples]
@@ -86,8 +88,8 @@ def separate_audio(audio_bytes: bytes, output_dir: str) -> dict[str, str]:
             model,
             waveform,
             device=device,
-            shifts=1,       # 1 random shift -> better quality; 0 = fastest
-            split=True,     # process in overlapping chunks -> saves memory
+            shifts=1,  # 1 random shift -> better quality; 0 = fastest
+            split=True,  # process in overlapping chunks -> saves memory
             overlap=0.25,
             progress=True,  # enables Demucs' built-in tqdm chunk bar
         )
@@ -95,7 +97,7 @@ def separate_audio(audio_bytes: bytes, output_dir: str) -> dict[str, str]:
     sources = sources[0]  # drop batch dim -> [num_stems, channels, samples]
 
     # -- 4. Write stems to disk -----------------------------------------------
-    stem_names = model.sources   # ["drums", "bass", "other", "vocals"]
+    stem_names = model.sources  # ["drums", "bass", "other", "vocals"]
     stem_paths: dict[str, str] = {}
 
     with _bar("Writing stems       ", total=len(stem_names), unit="stem") as bar:
@@ -110,7 +112,7 @@ def separate_audio(audio_bytes: bytes, output_dir: str) -> dict[str, str]:
     with _bar("Building no_vocals  ") as bar:
         vocal_idx = stem_names.index("vocals")
         no_vocals = sum(sources[i] for i in range(len(stem_names)) if i != vocal_idx)
-        nv_path   = output_dir / "no_vocals.wav"
+        nv_path = output_dir / "no_vocals.wav"
         torchaudio.save(str(nv_path), no_vocals.cpu(), model.samplerate)
         stem_paths["no_vocals"] = str(nv_path)
         bar.update(1)

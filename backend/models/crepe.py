@@ -1,16 +1,15 @@
 import torch
 import torchcrepe
-import numpy as np
 from shared.logger import logger
 
 
 # torchcrepe only has "tiny" and "full" — map the richer capacity strings
 _CAPACITY_MAP = {
-    "tiny":   "tiny",
-    "small":  "full",
+    "tiny": "tiny",
+    "small": "full",
     "medium": "full",
-    "large":  "full",
-    "full":   "full",
+    "large": "full",
+    "full": "full",
 }
 
 
@@ -29,9 +28,9 @@ class Crepe:
 
     def __init__(self, model_capacity: str = "medium"):
         self.model_capacity = model_capacity
-        self._ready         = False
-        self._device        = "cuda" if torch.cuda.is_available() else "cpu"
-        self._model         = _CAPACITY_MAP.get(model_capacity, "full")
+        self._ready = False
+        self._device = "cuda" if torch.cuda.is_available() else "cpu"
+        self._model = _CAPACITY_MAP.get(model_capacity, "full")
         self._load_model()
 
     def _load_model(self) -> None:
@@ -51,9 +50,9 @@ class Crepe:
             torchcrepe.predict(
                 dummy_audio,
                 sample_rate=16000,
-                hop_length=160,              # 10 ms at 16 kHz
-                fmin=32.7,                   # C1 — torchcrepe's default lower bound
-                fmax=1975.5,                 # B6 — torchcrepe's default upper bound
+                hop_length=160,  # 10 ms at 16 kHz
+                fmin=32.7,  # C1 — torchcrepe's default lower bound
+                fmax=1975.5,  # B6 — torchcrepe's default upper bound
                 model=self._model,
                 decoder=torchcrepe.decode.viterbi,
                 return_periodicity=True,

@@ -1,6 +1,4 @@
-import os
-from pathlib import Path
-from basic_pitch.inference import Model, predict
+from basic_pitch.inference import Model
 from basic_pitch import ICASSP_2022_MODEL_PATH
 from shared.logger import logger
 
@@ -8,10 +6,10 @@ from shared.logger import logger
 class BasicPitch:
     """
     Wrapper around Spotify's Basic Pitch audio-to-MIDI transcription model.
-    
+
     Basic Pitch is a lightweight neural network for polyphonic note transcription
     and multipitch estimation. It converts audio (WAV, MP3, FLAC, etc.) to MIDI.
-    
+
     Uses the ICASSP 2022 model (the official pretrained model from Spotify).
     Uses ONNX runtime for better compatibility with Python 3.12.
     """

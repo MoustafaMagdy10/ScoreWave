@@ -3,6 +3,7 @@ Melody analysis service for intelligent transcription.
 
 This service coordinates transcription of multiple stems and applies
 vocal-guided melody extraction to produce simple, melody-focused output.
+Enhanced with comprehensive tempo detection and note quantization.
 """
 
 import io
@@ -14,6 +15,8 @@ from typing import Dict, Any, List
 from shared.logger import logger
 from models.basic_pitch import BasicPitch
 from utils.vocal_guided_melody import apply_vocal_guided_extraction
+from utils.tempo_analysis import detect_comprehensive_tempo
+from utils.note_quantization import quantize_notes_comprehensive
 from basic_pitch.inference import predict
 
 
@@ -22,66 +25,76 @@ _basic_pitch = BasicPitch()
 
 
 def transcribe_stem_to_notes(
-    audio_bytes: bytes,
-    stem_name: str
+    audio_bytes: bytes, stem_name: str
 ) -> List[Dict[str, Any]]:
     """
     Transcribe a single audio stem to note events.
-    
+
     Args:
         audio_bytes: Raw audio bytes
         stem_name: Name of stem (for logging)
-        
+
     Returns:
         List of note dictionaries
     """
     if not _basic_pitch.health_check():
         raise RuntimeError("Basic Pitch model is not ready.")
-    
+
     logger.info(f"Transcribing {stem_name}...")
-    
+
     # Load audio
     waveform, sr = sf.read(io.BytesIO(audio_bytes), dtype="float32", always_2d=True)
-    
+
     # Resample to 44.1kHz if needed
     if sr != 44100:
         from scipy.signal import resample
+
         num_samples = int(len(waveform) * 44100 / sr)
         waveform = resample(waveform, num_samples, axis=0)
         sr = 44100
-    
-    # Save to temp file
-    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
-        sf.write(tmp.name, waveform, sr)
-        temp_path = tmp.name
-    
+
+    # Convert to mono for transcription
+    if waveform.shape[1] > 1:
+        mono_audio = waveform.mean(axis=1)
+    else:
+        mono_audio = waveform[:, 0]
+
+    # Save to temporary file for Basic Pitch
+    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_file:
+        temp_path = temp_file.name
+        sf.write(temp_path, mono_audio, sr)
+
     try:
-        # Run Basic Pitch
+        # Basic Pitch inference - use our pre-loaded ONNX model
         model_output, midi_data, note_events = predict(
-            audio_path=temp_path,
-            model_or_model_path=_basic_pitch.model,
-            onset_threshold=0.5,
-            frame_threshold=0.3,
-            minimum_note_length=50.0,
+            temp_path, model_or_model_path=_basic_pitch.model
         )
-        
-        # Convert to dict format
+
+        # Extract note information
         notes = []
-        for ne in note_events:
-            start_time, end_time, pitch, amplitude, pitch_bends = ne
-            notes.append({
-                "start_time_s": float(start_time),
-                "end_time_s": float(end_time),
-                "pitch": int(pitch),
-                "amplitude": float(amplitude),
-            })
-        
+        for note_event in note_events:
+            start_time_s = float(note_event[0])
+            end_time_s = float(note_event[1])
+            pitch = int(note_event[2])
+            amplitude = float(note_event[3])
+
+            notes.append(
+                {
+                    "start_time_s": start_time_s,
+                    "end_time_s": end_time_s,
+                    "duration_s": end_time_s - start_time_s,
+                    "pitch": int(pitch),
+                    "amplitude": float(amplitude),
+                }
+            )
+
         logger.info(f"  {stem_name}: {len(notes)} notes detected")
         return notes
-        
+
     finally:
         # Clean up temp file
         import os
+
         if os.path.exists(temp_path):
             os.remove(temp_path)
 
@@ -89,105 +102,209 @@ def transcribe_stem_to_notes(
 def analyze_and_extract_melody(
     vocals_audio: bytes,
     instruments_audio: bytes,
-    keep_all_melody: bool = True
+    keep_all_melody: bool = True,
+    quantization_settings: Dict[str, Any] = None,
 ) -> Dict[str, Any]:
     """
-    Analyze vocals and instruments to extract intelligent melody.
-    
-    Transcribes both stems separately, then uses vocal-guided analysis
-    to extract the true melodic line from instruments. Now preserves ALL
-    melodic notes instead of reducing to a target count.
-    
+    Analyze vocals and instruments to extract intelligent melody with enhanced processing.
+
     Args:
-        vocals_audio: Raw bytes of vocals stem
-        instruments_audio: Raw bytes of instruments stem (other/no_vocals)
-        keep_all_melody: If True, keeps all melodic notes (default: True)
-        
+        vocals_audio: Vocal stem audio data
+        instruments_audio: Instrumental stem audio data
+        keep_all_melody: Whether to keep all melodic notes (True recommended)
+        quantization_settings: Settings for note quantization
+
     Returns:
-        Dict with melody notes, tempo, and analysis stats
+        Dict with melody notes, statistics, and tempo information
     """
-    logger.info("Starting melody analysis...")
-    
-    # Transcribe vocals
-    vocal_notes = transcribe_stem_to_notes(vocals_audio, "vocals")
-    
-    # Transcribe instruments
-    instrument_notes = transcribe_stem_to_notes(instruments_audio, "instruments")
-    
-    # Apply vocal-guided extraction
-    logger.info("Applying vocal-guided melody extraction...")
-    result = apply_vocal_guided_extraction(
-        vocal_notes,
-        instrument_notes,
-        keep_all_melody=keep_all_melody
-    )
-    
-    # Detect tempo
-    logger.info("Detecting tempo...")
-    try:
-        import librosa
-        y, sr = sf.read(io.BytesIO(instruments_audio), dtype="float32")
-        if len(y.shape) > 1:
-            y = y.mean(axis=1)  # Convert to mono
-        
-        tempo, _ = librosa.beat.beat_track(y=y, sr=sr)
-        tempo = float(tempo)
-        logger.info(f"  Detected tempo: {tempo:.1f} BPM")
-    except Exception as e:
-        logger.warning(f"  Tempo detection failed: {e}")
-        tempo = None
-    
-    result['tempo_bpm'] = tempo
-    
+    logger.info("=== Enhanced Melody Analysis Pipeline ===")
+
+    # Step 1: Enhanced tempo detection
+    logger.info("Step 1: Comprehensive tempo detection...")
+    tempo_info = detect_comprehensive_tempo(instruments_audio)
+
+    logger.info("Tempo analysis results:")
     logger.info(
-        f"Melody extraction complete: {result['stats']['original_count']} → "
-        f"{result['stats']['final_count']} notes "
-        f"({result['stats']['reduction_pct']}% reduction)"
+        f"  BPM: {tempo_info['bpm']:.1f} (confidence: {tempo_info['confidence']:.2f})"
     )
-    
-    return result
+    logger.info(f"  Stability: {'✓' if tempo_info['is_stable'] else '⚠'}")
+    logger.info(f"  Time signature: {tempo_info['time_signature']}")
+
+    # Step 2: Transcribe stems
+    logger.info("Step 2: Transcribing audio stems...")
+    vocal_notes = transcribe_stem_to_notes(vocals_audio, "vocals")
+    instrument_notes = transcribe_stem_to_notes(instruments_audio, "instruments")
+
+    # Step 3: Apply vocal-guided extraction
+    logger.info("Step 3: Applying vocal-guided melody extraction...")
+    vocal_guided_result = apply_vocal_guided_extraction(
+        vocal_notes, instrument_notes, keep_all_melody=keep_all_melody
+    )
+
+    raw_melody_notes = vocal_guided_result["melody_notes"]
+    logger.info(
+        f"Vocal-guided extraction: {len(instrument_notes)} → {len(raw_melody_notes)} notes"
+    )
+
+    # Step 4: Enhanced quantization and musical filtering
+    logger.info("Step 4: Note quantization and musical enhancement...")
+
+    # Default quantization settings
+    default_quantization = {
+        "quantize_level": "sixteenth",
+        "swing_feel": 0.0,
+        "humanize_amount": 0.01,
+        "velocity_smoothing": True,
+        "remove_grace_notes": True,
+        "merge_overlaps": True,
+        "snap_threshold": 0.05,
+        "min_note_gap": 0.01,
+    }
+
+    # Adapt settings based on tempo
+    if tempo_info["bpm"] > 140:
+        # Fast tempo - use eighth note grid
+        default_quantization["quantize_level"] = "eighth"
+        default_quantization["remove_grace_notes"] = True
+    elif tempo_info["bpm"] < 80:
+        # Slow tempo - allow thirty-second notes
+        default_quantization["quantize_level"] = "thirty_second"
+        default_quantization["remove_grace_notes"] = False
+
+    final_settings = {**default_quantization, **(quantization_settings or {})}
+
+    quantization_result = quantize_notes_comprehensive(
+        raw_melody_notes, tempo_info, final_settings
+    )
+
+    final_melody_notes = quantization_result["quantized_notes"]
+    quantization_stats = quantization_result["stats"]
+
+    logger.info(
+        f"Quantization complete: {len(raw_melody_notes)} → {len(final_melody_notes)} notes"
+    )
+    logger.info(
+        f"  Musical quality score: {quantization_stats['musical_score']:.1f}/10"
+    )
+
+    # Step 5: Generate comprehensive statistics
+    combined_stats = {
+        **vocal_guided_result["stats"],
+        "tempo_info": tempo_info,
+        "quantization": quantization_stats,
+        "final_quality_score": quantization_stats["musical_score"],
+    }
+
+    original_count = combined_stats["original_count"]
+    final_count = len(final_melody_notes)
+    total_reduction = (
+        ((original_count - final_count) / original_count * 100)
+        if original_count > 0
+        else 0
+    )
+    combined_stats["total_reduction_pct"] = total_reduction
+
+    logger.info("=== Melody Analysis Complete ===")
+    logger.info(
+        f"Overall pipeline: {original_count} → {final_count} notes ({total_reduction:.1f}% reduction)"
+    )
+    logger.info(
+        f"Tempo: {tempo_info['bpm']:.1f} BPM ({'stable' if tempo_info['is_stable'] else 'variable'})"
+    )
+    logger.info(f"Quality: {quantization_stats['musical_score']:.1f}/10")
+
+    return {
+        "melody_notes": final_melody_notes,
+        "stats": combined_stats,
+        "tempo_bpm": tempo_info["bpm"],
+        "tempo_info": tempo_info,
+        "quantization_settings": final_settings,
+    }
 
 
-def notes_to_midi(notes: List[Dict[str, Any]], output_path: str) -> None:
+def notes_to_midi(
+    notes: List[Dict[str, Any]], output_path: str, tempo_bpm: float = 120.0
+) -> None:
     """
-    Convert note list to MIDI file.
-    
+    Convert note events to MIDI file with enhanced timing and tempo information.
+
     Args:
-        notes: List of note dictionaries
-        output_path: Path to write MIDI file
+        notes: List of note events with enhanced musical information
+        output_path: Path to save MIDI file
+        tempo_bpm: Tempo in BPM for MIDI timing
     """
-    midi = pretty_midi.PrettyMIDI()
-    instrument = pretty_midi.Instrument(program=0)  # Acoustic Grand Piano
-    
-    for note_dict in notes:
-        note = pretty_midi.Note(
-            velocity=int(note_dict['amplitude'] * 127),
-            pitch=note_dict['pitch'],
-            start=note_dict['start_time_s'],
-            end=note_dict['end_time_s']
+    if not notes:
+        logger.warning("No notes to convert to MIDI")
+        # Create empty MIDI file
+        midi = pretty_midi.PrettyMIDI(initial_tempo=tempo_bpm)
+        instrument = pretty_midi.Instrument(program=0, name="Melody")
+        midi.instruments.append(instrument)
+        midi.write(output_path)
+        return
+
+    logger.info(f"Converting {len(notes)} notes to MIDI at {tempo_bpm:.1f} BPM...")
+
+    # Create MIDI object with detected tempo
+    midi = pretty_midi.PrettyMIDI(initial_tempo=tempo_bpm)
+
+    # Create melody instrument (piano)
+    instrument = pretty_midi.Instrument(program=0, name="Melody")  # Piano
+
+    # Convert notes to MIDI
+    for note_data in notes:
+        start_time = note_data["start_time_s"]
+        end_time = note_data.get("end_time_s", start_time + note_data["duration_s"])
+        pitch = note_data["pitch"]
+
+        # Convert amplitude to MIDI velocity (0-127)
+        amplitude = note_data.get("amplitude", 0.8)
+        velocity = max(1, min(127, int(amplitude * 100)))
+
+        # Create MIDI note
+        midi_note = pretty_midi.Note(
+            velocity=velocity, pitch=pitch, start=start_time, end=end_time
         )
-        instrument.notes.append(note)
-    
+
+        instrument.notes.append(midi_note)
+
     midi.instruments.append(instrument)
+
+    # Write MIDI file
     midi.write(output_path)
+    logger.info(f"MIDI saved: {output_path}")
 
 
-def _midi_to_note_name(midi_note: int) -> str:
-    """Convert MIDI note number to note name."""
-    note_names = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
-    octave = (midi_note // 12) - 1
-    note_name = note_names[midi_note % 12]
-    return f"{note_name}{octave}"
+def enrich_notes_with_metadata(
+    notes: List[Dict[str, Any]], metadata: Dict[str, Any] = None
+) -> List[Dict[str, Any]]:
+    """
+    Enrich notes with additional metadata for JSON export.
 
+    Args:
+        notes: List of note events
+        metadata: Additional metadata (tempo_info, etc.)
 
-def _midi_to_frequency(midi_note: int) -> float:
-    """Convert MIDI note number to frequency in Hz."""
-    return 440.0 * (2.0 ** ((midi_note - 69) / 12.0))
+    Returns:
+        Enriched notes with metadata
+    """
+    if metadata is None:
+        metadata = {}
 
+    enriched_notes = []
 
-def enrich_notes_with_metadata(notes: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    """Add note names and frequencies to note dictionaries."""
     for note in notes:
-        note['note'] = _midi_to_note_name(note['pitch'])
-        note['frequency'] = round(_midi_to_frequency(note['pitch']), 2)
-    return notes
+        enriched_note = note.copy()
+
+        # Add metadata context
+        enriched_note["metadata"] = {
+            "tempo_bpm": metadata.get("tempo_bpm", 120),
+            "tempo_stable": metadata.get("tempo_info", {}).get("is_stable", False),
+            "quality_score": note.get("quality_score", 0.5),
+            "quantized": note.get("quantized", False),
+            "note_value": note.get("note_value", "quarter"),
+            "musical_beat": note.get("beat_position", 1.0),
+        }
+
+        enriched_notes.append(enriched_note)
+
+    return enriched_notes

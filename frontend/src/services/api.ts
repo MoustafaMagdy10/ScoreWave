@@ -1,12 +1,14 @@
 import axios, { type AxiosInstance, type AxiosResponse } from 'axios';
-import type { ProcessingResult, SeparationResult } from '../types';
+import type { ProcessingResult, SeparationResult, TransposeRequest, TransposeResponse, AvailableKeysResponse, NoteData } from '../types';
+
+const API_BASE_URL = 'http://localhost:8000';
 
 class ApiClient {
   private client: AxiosInstance;
 
   constructor() {
     this.client = axios.create({
-      baseURL: 'http://localhost:8000/api',
+      baseURL: `${API_BASE_URL}/api`,
       timeout: 300000, // 5 minutes for long processing tasks
       headers: {
         'Content-Type': 'application/json',
@@ -24,8 +26,8 @@ class ApiClient {
   }
 
   // Health check
-  async healthCheck(): Promise<{ Hello: string }> {
-    const response: AxiosResponse<{ Hello: string }> = await this.client.get('/');
+  async healthCheck(): Promise<{ message: string }> {
+    const response: AxiosResponse<{ message: string }> = await axios.get(API_BASE_URL);
     return response.data;
   }
 
@@ -57,9 +59,18 @@ class ApiClient {
     return response.data;
   }
 
-  // Download file (MIDI, PDF, stems)
+  // Get MusicXML content as text (for OSMD)
+  async getMusicXML(url: string): Promise<string> {
+    const response = await axios.get(`${API_BASE_URL}${url}`, {
+      responseType: 'text',
+    });
+    return response.data;
+  }
+
+  // Download file (MIDI, MusicXML, stems)
   async downloadFile(url: string, filename?: string): Promise<Blob> {
-    const response: AxiosResponse<Blob> = await this.client.get(url, {
+    // URL already includes /api prefix, use base URL directly
+    const response: AxiosResponse<Blob> = await axios.get(`${API_BASE_URL}${url}`, {
       responseType: 'blob',
     });
 
@@ -81,6 +92,30 @@ class ApiClient {
   async getProcessingStatus(jobId: string): Promise<{ status: string; progress: number }> {
     const response = await this.client.get(`/status/${jobId}`);
     return response.data;
+  }
+
+  // Get stem audio URL for streaming/playing
+  getStemAudioUrl(stemPath: string): string {
+    return `${API_BASE_URL}${stemPath}`;
+  }
+
+  // Transpose notes by semitones or to a target key
+  async transposeNotes(
+    notes: NoteData[],
+    options: { semitones?: number; from_key?: string; to_key?: string }
+  ): Promise<TransposeResponse> {
+    const request: TransposeRequest = {
+      notes,
+      ...options,
+    };
+    const response: AxiosResponse<TransposeResponse> = await this.client.post('/transpose', request);
+    return response.data;
+  }
+
+  // Get available keys for transposition
+  async getAvailableKeys(): Promise<string[]> {
+    const response: AxiosResponse<AvailableKeysResponse> = await this.client.get('/transpose/keys');
+    return response.data.keys;
   }
 }
 

@@ -3,12 +3,10 @@ from shared.logger import logger
 
 
 class Demucs:
-
     def __init__(self, model_name: str = "htdemucs"):
         self.model_name = model_name
-        self.model      = None
+        self.model = None
         self._load_model()
-
 
     def _load_model(self) -> None:
 
@@ -20,7 +18,6 @@ class Demucs:
         except Exception as e:
             logger.error(f"Failed to load Demucs model '{self.model_name}': {e}")
             raise
-
 
     def health_check(self) -> bool:
         if self.model is None:

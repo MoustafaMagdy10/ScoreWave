@@ -1,6 +1,5 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException, Query
 from pydantic import BaseModel
-from shared.logger import logger
 from utils.file_handler import validate_audio_extension, MAX_UPLOAD_BYTES
 from services.crepe_service import extract_pitch
 
@@ -9,17 +8,19 @@ router = APIRouter()
 
 # ── Response schema ────────────────────────────────────────────────────────
 
+
 class PitchContour(BaseModel):
-    time:          list[float]  # seconds for each kept frame
-    frequency:     list[float]  # Hz per frame
-    confidence:    list[float]  # 0–1 per frame
-    note:          list[str]    # e.g. ["C4", "D4", ...]
-    duration_s:    float        # total audio duration
-    frames_total:  int          # frames before confidence filter
-    frames_kept:   int          # frames after confidence filter
+    time: list[float]  # seconds for each kept frame
+    frequency: list[float]  # Hz per frame
+    confidence: list[float]  # 0–1 per frame
+    note: list[str]  # e.g. ["C4", "D4", ...]
+    duration_s: float  # total audio duration
+    frames_total: int  # frames before confidence filter
+    frames_kept: int  # frames after confidence filter
 
 
 # ── Endpoint ───────────────────────────────────────────────────────────────
+
 
 @router.post("/pitch", response_model=PitchContour)
 async def extract_pitch_route(

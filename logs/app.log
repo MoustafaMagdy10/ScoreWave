@@ -1,0 +1,39 @@
+2026-06-08 11:28:15,005 - songify - INFO - Loading torchcrepe model (capacity=medium → model='full', device=cpu)...
+2026-06-08 11:28:20,930 - songify - INFO - torchcrepe model 'full' loaded successfully.
+2026-06-08 11:28:20,978 - songify - INFO - Starting pitch extraction (torchcrepe)
+2026-06-08 11:28:21,004 - songify - INFO -   Audio: 8.0s | mono | 16000 Hz
+2026-06-08 11:28:21,004 - songify - INFO - Running torchcrepe -- this may take a moment...
+2026-06-08 11:28:57,244 - songify - INFO -   Kept 797/801 frames (99.5%) at threshold 0.5
+2026-06-08 11:28:57,257 - songify - INFO -   Quarter-tone notes detected: 1 frames
+2026-06-08 11:28:57,257 - songify - INFO - Pitch extraction complete -- 36.3s
+2026-06-08 11:30:20,409 - songify - INFO - Loading torchcrepe model (capacity=medium → model='full', device=cpu)...
+2026-06-08 11:30:25,632 - songify - INFO - torchcrepe model 'full' loaded successfully.
+2026-06-08 11:30:25,649 - songify - INFO - Starting pitch extraction (torchcrepe)
+2026-06-08 11:30:25,683 - songify - INFO -   Audio: 10.0s | mono | 16000 Hz
+2026-06-08 11:30:25,684 - songify - INFO - Running torchcrepe -- this may take a moment...
+2026-06-08 11:31:01,876 - songify - INFO -   Kept 1000/1001 frames (99.9%) at threshold 0.4
+2026-06-08 11:31:01,900 - songify - INFO -   Quarter-tone notes detected: 231 frames
+2026-06-08 11:31:01,901 - songify - INFO - Pitch extraction complete -- 36.3s
+2026-06-10 12:36:37,764 - songify - INFO - Loading torchcrepe model (capacity=medium → model='full', device=cpu)...
+2026-06-10 12:36:41,920 - songify - INFO - torchcrepe model 'full' loaded successfully.
+2026-06-10 12:36:41,929 - songify - INFO - Starting pitch extraction (torchcrepe)
+2026-06-10 12:36:41,949 - songify - INFO -   Audio: 10.0s | mono | 16000 Hz
+2026-06-10 12:36:41,950 - songify - INFO - Running torchcrepe -- this may take a moment...
+2026-06-10 12:37:14,242 - songify - INFO -   Kept 1000/1001 frames (99.9%) at threshold 0.4
+2026-06-10 12:37:14,254 - songify - INFO -   Quarter-tone notes detected: 213 frames
+2026-06-10 12:37:14,254 - songify - INFO - Pitch extraction complete -- 32.3s
+2026-06-10 12:48:15,006 - songify - INFO - Loading torchcrepe model (capacity=medium → model='full', device=cpu)...
+2026-06-10 12:48:18,437 - songify - INFO - torchcrepe model 'full' loaded successfully.
+2026-06-10 12:48:18,448 - songify - INFO - Starting pitch extraction (torchcrepe)
+2026-06-10 12:48:18,465 - songify - INFO -   Audio: 10.0s | mono | 16000 Hz
+2026-06-10 12:48:18,465 - songify - INFO - Running torchcrepe -- this may take a moment...
+2026-06-10 12:48:45,722 - songify - INFO -   Kept 1000/1001 frames (99.9%) at threshold 0.4
+2026-06-10 12:48:45,732 - songify - INFO -   Quarter-tone notes detected: 229 frames
+2026-06-10 12:48:45,732 - songify - INFO - Pitch extraction complete -- 27.3s
+2026-06-10 12:48:59,066 - songify - INFO - Loading torchcrepe model (capacity=medium → model='full', device=cpu)...
+2026-06-10 12:49:02,060 - songify - INFO - torchcrepe model 'full' loaded successfully.
+2026-06-10 12:49:02,070 - songify - INFO - Starting pitch extraction (torchcrepe)
+2026-06-10 12:49:02,081 - songify - INFO -   Audio: 8.0s | mono | 16000 Hz
+2026-06-10 12:49:02,081 - songify - INFO - Running torchcrepe -- this may take a moment...
+2026-06-10 12:49:21,226 - songify - INFO -   Kept 797/801 frames (99.5%) at threshold 0.5
+2026-06-10 12:49:21,234 - songify - INFO - Pitch extraction complete -- 19.2s

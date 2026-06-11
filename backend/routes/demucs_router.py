@@ -28,7 +28,9 @@ async def run_separation(file: UploadFile = File(...)):
     audio_bytes = await file.read()
 
     if len(audio_bytes) > MAX_UPLOAD_BYTES:
-        raise HTTPException(status_code=413, detail="File exceeds the 50 MB upload limit.")
+        raise HTTPException(
+            status_code=413, detail="File exceeds the 50 MB upload limit."
+        )
 
     try:
         separate_audio(audio_bytes, STEMS_DIR)
@@ -37,11 +39,11 @@ async def run_separation(file: UploadFile = File(...)):
 
     return SeparationResponse(
         stems=StemPaths(
-            vocals    = "/api/stems/vocals",
-            no_vocals = "/api/stems/no_vocals",
-            drums     = "/api/stems/drums",
-            bass      = "/api/stems/bass",
-            other     = "/api/stems/other",
+            vocals="/api/stems/vocals",
+            no_vocals="/api/stems/no_vocals",
+            drums="/api/stems/drums",
+            bass="/api/stems/bass",
+            other="/api/stems/other",
         )
     )
 
@@ -57,7 +59,9 @@ def download_stem(stem_name: str):
     if not path.exists():
         raise HTTPException(
             status_code=404,
-            detail=f"Stem '{stem_name}' not found. Run POST /api/separate first."
+            detail=f"Stem '{stem_name}' not found. Run POST /api/separate first.",
         )
 
-    return FileResponse(path=str(path), media_type="audio/wav", filename=f"{stem_name}.wav")
+    return FileResponse(
+        path=str(path), media_type="audio/wav", filename=f"{stem_name}.wav"
+    )
